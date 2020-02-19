@@ -1291,6 +1291,7 @@ namespace DcpTestSuite
   class Transition: public ::xml_schema::type
   {
     public:
+	int transition_id;
     // Sending
     //
     typedef ::DcpTestSuite::Sending Sending_type;

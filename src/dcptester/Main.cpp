@@ -70,10 +70,24 @@ int main(int argc, char *argv[]) {
     if(filename.length() > 0){
         procedures.insert(readDcpTestProcedure(filename.c_str()));
     }
-
+	
+	std::cout << "Read Done" << std::endl;
+	for( auto p : procedures) {
+		std::cout<< p->name()<< std::endl;
+		int i=0;
+        for(Transition& transition: p->Transition()){
+			//std::cout<<"Trans #"<< i <<" " <<transition.from()<< std::endl;
+			transition.transition_id = i;
+			i++;
+		}
+		std::cout<<"Final Trans #"<< i << std::endl;
+	}
     tester->setTestProcedures(procedures);
+	std::cout << "Set Proc done" << std::endl;
     tester->setDelay(delay);
+	std::cout << "DelayDone" << std::endl;
     tester->start();
+	std::cout << "start Done" << std::endl;
 
 
 

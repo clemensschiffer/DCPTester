@@ -78,6 +78,9 @@ if(field.name().present()){ \
 
 class DcpTester {
 public:
+	std::vector<int> numVisited;
+	std::vector<bool> isSending;
+public:
     DcpTester(DcpDriver driver, DcpManagerMaster *manager, bool verbose, std::string logFile, DcpTransportProtocol dcpProtocol, std::string ip, int32_t port) : stdLog(std::cout), fileLog(fileStream){
         this->driver = driver;
         this->manager = manager;
@@ -164,11 +167,17 @@ public:
             std::cout << "create Automaton" << std::endl;
             automaton = new Automaton();
             automaton->init(*ptr);
+			int nTrans = (ptr->Transition()).size();
+			numVisited.resize(nTrans);
+			isSending.resize(nTrans);
+			std::fill (numVisited.begin(),numVisited.end(),0);
+			std::fill (isSending.begin(), isSending.end(),false);
             if (ptr->name().present()) {
                 testProcedureName = std::string(ptr->name().get());
             }
             std::cout << "Start Procedure" << std::endl;
             runTestProcedure(ptr);
+			std::cout << "End Procedure"<< std::endl; 
             delete automaton;
 
         }
@@ -206,8 +215,7 @@ public:
                 }
                 case DcpPduType::NTF_state_changed: {
                     DcpPduNtfStateChanged &stateChanged = static_cast<DcpPduNtfStateChanged &>(pdu);
-                    std::thread t(&DcpTester::receive_NTF_state_changed, this, now, stateChanged.getSender(), stateChanged.getStateId());
-                    t.detach();
+                    receive_NTF_state_changed(now, stateChanged.getSender(), stateChanged.getStateId());
                     break;
                 }
                 case DcpPduType::NTF_log: {
@@ -220,7 +228,9 @@ public:
                     size_t size = inputOutput.getSerializedSize() - 9;
                     uint8_t* payloadCpy = new uint8_t[size];
                     std::memcpy(payloadCpy, inputOutput.getPayload(), size);
-
+					
+					//std::cout << inputOutput.getDataId() << std::endl;
+					//std::cout << "Size= " <<  inputOutput.getSerializedSize() << " -9 = " << size << std::endl;
                     std::thread t(&DcpTester::receive_DAT_input_output, this, now, inputOutput.getDataId(), payloadCpy, size);
                     t.join();
 
@@ -858,6 +868,7 @@ private:
                 }
             }
         }
+		//std::cout << "Checking: datIO DataId= " << dataId << std::endl; 
         check(time, found, correctFields, "DAT_input_output", transitionPtr);
         delete payload;
         mutex.unlock();
@@ -955,6 +966,10 @@ private:
                 const ClockTime::numerator_type &numerator = transition->Sending().get().ClockTime().get().numerator();
                 const ClockTime::denominator_type &denominator = transition->Sending().get().ClockTime().get().denominator();
                 nextExecution[transition] -= between;
+				//if(std::to_string(transition->transition_id) == "2515") {
+				if(std::to_string(transition->to()) == "33") {
+					//std::cout << "next Exec: " << nextExecution[transition] << std::endl;
+				}
                 if (nextExecution[transition] < min) {
                     min = nextExecution[transition];
                     minTrans = transition;
@@ -963,6 +978,13 @@ private:
 
             if (minTrans != NULL && min <= 0) {
                 sendTransition(minTrans);
+            	std::string tranStr = "Transition (" + std::to_string(minTrans->from()) + " -> " + std::to_string(minTrans->to()) + ") with id:" + std::to_string(minTrans->transition_id);
+				std::cout << tranStr << std::endl;
+				if(std::to_string(minTrans->transition_id) == "2515") {
+					std::cout << "Sending NTF" << std::endl;
+				}
+				numVisited[minTrans->transition_id]++; 
+				isSending[minTrans->transition_id]=true; 
                 setStep(minTrans);
                 nextExecution[minTrans] = nextExecutionDefault[minTrans];
 
@@ -970,6 +992,10 @@ private:
                 for (const auto &transition: automaton->getSendingSuccessorsWithoutClock(step)) {
                     if (lastAction >= delay) {
                         sendTransition(transition);
+            			std::string tranStr = "Transition (" + std::to_string(transition->from()) + " -> " + std::to_string(transition->to()) + ") with id:" + std::to_string(transition->transition_id);
+						//std::cout << tranStr << std::endl;
+						numVisited[transition->transition_id]++; 
+						isSending[transition->transition_id]=true; 
                         setStep(transition);
                         lastAction = 0;
                     }
@@ -980,6 +1006,37 @@ private:
             mutex.unlock();
         }
         manager->Log(SUCCESS);
+		//for( auto& it : numVisited) {
+		int transUsed = 0;
+		int numSend=0;
+		int numAcSend=0;
+		int numRece=0;
+		int numAcRece=0;
+		for( int i =0; i< numVisited.size(); ++i) {
+				std::cout << "Transition_id " << i<< ": " << numVisited[i] << std::endl;
+				if(numVisited[i] >0) {
+					transUsed++;
+				}
+				if(isSending[i]) {
+					numSend++;
+					if(numVisited[i] >0) {
+						numAcSend++;
+					}
+				}
+				if(!isSending[i]) {
+					numRece++;
+					if(numVisited[i] >0) {
+						numAcRece++;
+					}
+				}
+		}
+		std::cout << "Transitions total " << numVisited.size()  << std::endl;
+		std::cout << "Sending " << numSend  << std::endl;
+		std::cout << "SendingAc " << numAcSend  << std::endl;
+		std::cout << "Receiving " << numRece  << std::endl;
+		std::cout << "ReceivingAc " << numAcRece  << std::endl;
+		std::cout << "Transitions used " << transUsed << std::endl;
+
         for(auto& entry: statistic){
             Transition* trans = entry.first;
 
@@ -1009,6 +1066,10 @@ private:
 
     inline void check(std::chrono::steady_clock::time_point time, bool found, bool correctFields, const char* msg, Transition* transition){
         if(found && correctFields){
+			// TODO clemens code
+			std::string tranStr = "Transition (" + std::to_string(transition->from()) + " -> " + std::to_string(transition->to()) + ") with id:" + std::to_string(transition->transition_id);
+			numVisited[transition->transition_id]++; 
+			//std::cout << tranStr << std::endl;
             setStep(transition);
             log(time, transition);
         } else {
@@ -1039,7 +1100,7 @@ private:
         oss << "min=" << std::to_string(field.name().get().min().get()) << ", "; \
     } \
     if(field.name().get().max().present()){ \
-        oss << "max=" << std::to_string(field.name().get().min().get()) << ", "; \
+        oss << "max=" << std::to_string(field.name().get().max().get()) << ", "; \
     } \
 }
 
