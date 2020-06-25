@@ -75,12 +75,18 @@ int main(int argc, char *argv[]) {
 	for( auto p : procedures) {
 		std::cout<< p->name()<< std::endl;
 		int i=0;
+		int s=0;
         for(Transition& transition: p->Transition()){
 			//std::cout<<"Trans #"<< i <<" " <<transition.from()<< std::endl;
 			transition.transition_id = i;
+    		if (transition.Sending().present()) { 
+			//	std::cout << "Sending" << std::endl;;
+				s++;
+			}
 			i++;
 		}
 		std::cout<<"Final Trans #"<< i << std::endl;
+		std::cout<<"Sending #"<< s << std::endl;
 	}
     tester->setTestProcedures(procedures);
 	std::cout << "Set Proc done" << std::endl;

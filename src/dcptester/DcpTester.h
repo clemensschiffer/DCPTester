@@ -936,6 +936,14 @@ private:
         step = 0;
         //logger.logStep(step);
         for (Transition& transition: testProcedure->Transition()) {
+    		if (transition.Sending().present()) { 
+				isSending[transition.transition_id] = true;
+			}
+    		if (transition.Receiving().present()) { 
+				isSending[transition.transition_id] = false;
+			}
+		}
+        for (Transition& transition: testProcedure->Transition()) {
             if (transition.Sending().present() && transition.Sending().get().ClockTime().present()) {
                 const ClockTime::numerator_type &numerator = transition.Sending().get().ClockTime().get().numerator();
                 const ClockTime::denominator_type &denominator = transition.Sending().get().ClockTime().get().denominator();
@@ -963,6 +971,7 @@ private:
             lastAction += between;
 
             for (Transition* transition: automaton->getSendingSuccessorsWithClock(step)) {
+				//isSending[transition->transition_id]=true; 
                 const ClockTime::numerator_type &numerator = transition->Sending().get().ClockTime().get().numerator();
                 const ClockTime::denominator_type &denominator = transition->Sending().get().ClockTime().get().denominator();
                 nextExecution[transition] -= between;
@@ -981,10 +990,14 @@ private:
             	std::string tranStr = "Transition (" + std::to_string(minTrans->from()) + " -> " + std::to_string(minTrans->to()) + ") with id:" + std::to_string(minTrans->transition_id);
 				std::cout << tranStr << std::endl;
 				if(std::to_string(minTrans->transition_id) == "2515") {
+				//if(std::to_string(minTrans->to()) == "1950") {
 					std::cout << "Sending NTF" << std::endl;
+					//unsigned int my_now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    				//std::cout << my_now << std::endl;
+					//std::cout << min << std::endl;
 				}
 				numVisited[minTrans->transition_id]++; 
-				isSending[minTrans->transition_id]=true; 
+				//isSending[minTrans->transition_id]=true; 
                 setStep(minTrans);
                 nextExecution[minTrans] = nextExecutionDefault[minTrans];
 
@@ -993,9 +1006,9 @@ private:
                     if (lastAction >= delay) {
                         sendTransition(transition);
             			std::string tranStr = "Transition (" + std::to_string(transition->from()) + " -> " + std::to_string(transition->to()) + ") with id:" + std::to_string(transition->transition_id);
-						//std::cout << tranStr << std::endl;
+						std::cout << tranStr << std::endl;
 						numVisited[transition->transition_id]++; 
-						isSending[transition->transition_id]=true; 
+						//isSending[transition->transition_id]=true; 
                         setStep(transition);
                         lastAction = 0;
                     }
@@ -1012,8 +1025,10 @@ private:
 		int numAcSend=0;
 		int numRece=0;
 		int numAcRece=0;
+		std::ofstream m_data_out_file;
+		m_data_out_file.open( "transitions.txt");
 		for( int i =0; i< numVisited.size(); ++i) {
-				std::cout << "Transition_id " << i<< ": " << numVisited[i] << std::endl;
+				m_data_out_file << "Transition_id " << i<< ": " << numVisited[i] << std::endl;
 				if(numVisited[i] >0) {
 					transUsed++;
 				}
@@ -1030,11 +1045,14 @@ private:
 					}
 				}
 		}
+		m_data_out_file.close();
 		std::cout << "Transitions total " << numVisited.size()  << std::endl;
 		std::cout << "Sending " << numSend  << std::endl;
 		std::cout << "SendingAc " << numAcSend  << std::endl;
+		std::cout << "Sending ratio " << float(numAcSend)/float(numSend)  << std::endl;
 		std::cout << "Receiving " << numRece  << std::endl;
 		std::cout << "ReceivingAc " << numAcRece  << std::endl;
+		std::cout << "Receiving ratio " << float(numAcRece)/float(numRece)  << std::endl;
 		std::cout << "Transitions used " << transUsed << std::endl;
 
         for(auto& entry: statistic){
@@ -1067,9 +1085,9 @@ private:
     inline void check(std::chrono::steady_clock::time_point time, bool found, bool correctFields, const char* msg, Transition* transition){
         if(found && correctFields){
 			// TODO clemens code
-			std::string tranStr = "Transition (" + std::to_string(transition->from()) + " -> " + std::to_string(transition->to()) + ") with id:" + std::to_string(transition->transition_id);
 			numVisited[transition->transition_id]++; 
-			//std::cout << tranStr << std::endl;
+			std::string tranStr = "Transition (" + std::to_string(transition->from()) + " -> " + std::to_string(transition->to()) + ") with id:" + std::to_string(transition->transition_id);
+			std::cout << tranStr << std::endl;
             setStep(transition);
             log(time, transition);
         } else {
