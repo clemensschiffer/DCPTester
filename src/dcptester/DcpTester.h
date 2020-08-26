@@ -346,7 +346,8 @@ private:
                 manager->STC_run(STC_run.receiver(), (DcpState) STC_run.state_id(), STC_run.start_time().get());
             } else {
                 std::time_t now=std::time(0);
-                manager->STC_run(STC_run.receiver(), (DcpState) STC_run.state_id(), now + 1);
+                //manager->STC_run(STC_run.receiver(), (DcpState) STC_run.state_id(), now + 1);
+                manager->STC_run(STC_run.receiver(), (DcpState) STC_run.state_id(), 0);
             }
         }else sendIfHead(STC_do_step)
             manager->STC_do_step(STC_do_step.receiver(), (DcpState) STC_do_step.state_id(), STC_do_step.steps());
@@ -1048,10 +1049,10 @@ private:
 		m_data_out_file.close();
 		std::cout << "Transitions total " << numVisited.size()  << std::endl;
 		std::cout << "Sending " << numSend  << std::endl;
-		std::cout << "SendingAc " << numAcSend  << std::endl;
+		std::cout << "SendingActual " << numAcSend  << std::endl;
 		std::cout << "Sending ratio " << float(numAcSend)/float(numSend)  << std::endl;
 		std::cout << "Receiving " << numRece  << std::endl;
-		std::cout << "ReceivingAc " << numAcRece  << std::endl;
+		std::cout << "ReceivingActual " << numAcRece  << std::endl;
 		std::cout << "Receiving ratio " << float(numAcRece)/float(numRece)  << std::endl;
 		std::cout << "Transitions used " << transUsed << std::endl;
 
